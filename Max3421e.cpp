@@ -13,11 +13,8 @@ MAX3421E::MAX3421E()
 {
     spi_init();  
     pinMode( MAX_INT, INPUT);
-    pinMode( MAX_GPX, INPUT );
     pinMode( MAX_SS, OUTPUT );
     digitalWrite(MAX_SS,HIGH);   
-    pinMode( MAX_RESET, OUTPUT );
-    digitalWrite( MAX_RESET, HIGH );  //release MAX3421E from reset
 }
 
 byte MAX3421E::getVbusState( void )
@@ -50,29 +47,34 @@ byte MAX3421E::getVbusState( void )
 //}
 /* Single host register write   */
 void MAX3421E::regWr( byte reg, byte val)
-{
-      digitalWrite(MAX_SS,LOW);
-      SPDR = ( reg | 0x02 );
-      while(!( SPSR & ( 1 << SPIF )));
-      SPDR = val;
-      while(!( SPSR & ( 1 << SPIF )));
-      digitalWrite(MAX_SS,HIGH);
+{ 
+        SPI.beginTransaction(SPISettings(26000000, MSBFIRST, SPI_MODE0)); // The MAX3421E can handle up to 26MHz, use MSB First and SPI mode 0
+        
+        digitalWrite(MAX_SS,LOW);
+        
+        SPI.transfer(reg | 0x02);
+        SPI.transfer(val);
+        
+        digitalWrite(MAX_SS,HIGH);
+        SPI.endTransaction(); 
+        
       return;
 }
 /* multiple-byte write */
 /* returns a pointer to a memory position after last written */
 char * MAX3421E::bytesWr( byte reg, byte nbytes, char * data )
 {
-    digitalWrite(MAX_SS,LOW);
-    SPDR = ( reg | 0x02 );
-    while( nbytes-- ) {
-      while(!( SPSR & ( 1 << SPIF )));  //check if previous byte was sent
-      SPDR = ( *data );               // send next data byte
-      data++;                         // advance data pointer
-    }
-    while(!( SPSR & ( 1 << SPIF )));
-    digitalWrite(MAX_SS,HIGH);
-    return( data );
+        SPI.beginTransaction(SPISettings(26000000, MSBFIRST, SPI_MODE0)); // The MAX3421E can handle up to 26MHz, use MSB First and SPI mode 0
+        digitalWrite(MAX_SS,LOW);
+        SPI.transfer(reg | 0x02);
+        while(nbytes) {
+                SPI.transfer(*data);
+                nbytes--;
+                data++; // advance data pointer
+        }
+		digitalWrite(MAX_SS,HIGH);
+        SPI.endTransaction(); 
+        return ( data);
 }
 /* GPIO write. GPIO byte is split between 2 registers, so two writes are needed to write one byte */
 /* GPOUT bits are in the low nibble. 0-3 in IOPINS1, 4-7 in IOPINS2 */
@@ -88,31 +90,30 @@ void MAX3421E::gpioWr( byte val )
 /* Single host register read        */
 byte MAX3421E::regRd( byte reg )    
 {
-  byte tmp;
-    digitalWrite(MAX_SS,LOW);
-    SPDR = reg;
-    while(!( SPSR & ( 1 << SPIF )));
-    SPDR = 0; //send empty byte
-    while(!( SPSR & ( 1 << SPIF )));
-    digitalWrite(MAX_SS,HIGH); 
-    return( SPDR );
+        SPI.beginTransaction(SPISettings(26000000, MSBFIRST, SPI_MODE0)); // The MAX3421E can handle up to 26MHz, use MSB First and SPI mode 0
+        digitalWrite(MAX_SS,LOW);
+        
+        SPI.transfer(reg);
+        uint8_t rv = SPI.transfer(0); // Send empty byte
+        digitalWrite(MAX_SS,HIGH); 
+        SPI.endTransaction();
+        return (rv);
 }
 /* multiple-bytes register read                             */
 /* returns a pointer to a memory position after last read   */
 char * MAX3421E::bytesRd ( byte reg, byte nbytes, char  * data )
 {
-    digitalWrite(MAX_SS,LOW);
-    SPDR = reg;      
-    while(!( SPSR & ( 1 << SPIF )));    //wait
-    while( nbytes ) {
-      SPDR = 0; //send empty byte
-      nbytes--;
-      while(!( SPSR & ( 1 << SPIF )));
-      *data = SPDR;
-      data++;
-    }
-    digitalWrite(MAX_SS,HIGH);
-    return( data );   
+        SPI.beginTransaction(SPISettings(26000000, MSBFIRST, SPI_MODE0)); // The MAX3421E can handle up to 26MHz, use MSB First and SPI mode 0
+        digitalWrite(MAX_SS,LOW);
+        SPI.transfer(reg);
+        while(nbytes) {
+            *data++ = SPI.transfer(0);
+            nbytes--;
+        }
+
+        digitalWrite(MAX_SS,HIGH);
+        SPI.endTransaction();
+        return ( data);  
 }
 /* GPIO read. See gpioWr for explanation */
 /* GPIN pins are in high nibbles of IOPINS1, IOPINS2    */

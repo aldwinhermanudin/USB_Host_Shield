@@ -4,6 +4,49 @@
 #ifndef _MAX3421Econstants_h_
 #define _MAX3421Econstants_h_
 
+#ifdef ESP8266
+#undef PROGMEM
+#define PROGMEM
+#undef PSTR
+#define PSTR(s) (s)
+#undef pgm_read_byte
+#define pgm_read_byte(addr) (*reinterpret_cast<const uint8_t*>(addr))
+#undef pgm_read_word
+#define pgm_read_word(addr) (*reinterpret_cast<const uint16_t*>(addr))
+#endif
+
+#ifdef ESP32
+	#ifdef pgm_read_word
+		#undef pgm_read_word
+	#endif
+	#ifdef pgm_read_dword
+		#undef pgm_read_dword
+	#endif
+	#ifdef  pgm_read_float
+		#undef pgm_read_float
+	#endif
+	#ifdef  pgm_read_ptr
+		#undef pgm_read_ptr
+	#endif
+
+	#define pgm_read_word(addr) ({ \
+	  typeof(addr) _addr = (addr); \
+	  *(const unsigned short *)(_addr); \
+	})
+	#define pgm_read_dword(addr) ({ \
+	  typeof(addr) _addr = (addr); \
+	  *(const unsigned long *)(_addr); \
+	})
+	#define pgm_read_float(addr) ({ \
+	  typeof(addr) _addr = (addr); \
+	  *(const float *)(_addr); \
+	})
+	#define pgm_read_ptr(addr) ({ \
+	  typeof(addr) _addr = (addr); \
+	  *(void * const *)(_addr); \
+	})
+#endif
+
 /* SPI pins for diffrent Arduinos */
 
 #if defined(__AVR_ATmega1280__) || (__AVR_ATmega2560__)
@@ -19,8 +62,21 @@
   #define SS_PIN    10
 #endif
 
-#define MAX_SS    10
-#define MAX_INT   9
+#if  defined(ESP8266)
+  #define SCK_PIN   14
+  #define MISO_PIN  12
+  #define MOSI_PIN  13
+  #define SS_PIN    15
+#endif
+#if  defined(ESP32)
+	#define SCK_PIN  2
+	#define MISO_PIN 23
+	#define MOSI_PIN 22
+	#define SS_PIN   0
+#endif
+
+#define MAX_SS    0
+#define MAX_INT   17
 #define MAX_GPX   8
 #define MAX_RESET 7
 

@@ -264,45 +264,56 @@ byte USB::outTransfer( byte addr, byte ep, unsigned int nbytes, char* data, unsi
 /* return codes 0x00-0x0f are HRSLT( 0x00 being success ), 0xff means timeout                       */
 byte USB::dispatchPkt( byte token, byte ep, unsigned int nak_limit )
 {
- unsigned long timeout = millis() + USB_XFER_TIMEOUT;
- byte tmpdata;   
- byte rcode;
- unsigned int nak_count = 0;
- char retry_count = 0;
+	uint32_t timeout = (uint32_t)millis() + USB_XFER_TIMEOUT;
+        uint8_t tmpdata;
+        uint8_t rcode = hrSUCCESS;
+        uint8_t retry_count = 0;
+        uint16_t nak_count = 0;
 
-  while( timeout > millis() ) {
-    regWr( rHXFR, ( token|ep ));            //launch the transfer
-    rcode = 0xff;   
-    while( millis() < timeout ) {           //wait for transfer completion
-      tmpdata = regRd( rHIRQ );
-      if( tmpdata & bmHXFRDNIRQ ) {
-        regWr( rHIRQ, bmHXFRDNIRQ );    //clear the interrupt
-        rcode = 0x00;
-        break;
-      }//if( tmpdata & bmHXFRDNIRQ
-    }//while ( millis() < timeout
-    if( rcode != 0x00 ) {                //exit if timeout
-      return( rcode );
-    }
-    rcode = ( regRd( rHRSL ) & 0x0f );  //analyze transfer result
-    switch( rcode ) {
-      case hrNAK:
-        nak_count ++;
-        if( nak_limit && ( nak_count == nak_limit )) {
-          return( rcode );
-        }
-        break;
-      case hrTIMEOUT:
-        retry_count ++;
-        if( retry_count == USB_RETRY_LIMIT ) {
-          return( rcode );
-        }
-        break;
-      default:
-        return( rcode );
-    }//switch( rcode
-  }//while( timeout > millis() 
-  return( rcode );
+        while((int32_t)((uint32_t)millis() - timeout) < 0L) {
+#if defined(ESP8266) || defined(ESP32)
+                        yield(); // needed in order to reset the watchdog timer on the ESP8266
+#endif
+                regWr(rHXFR, (token | ep)); //launch the transfer
+                rcode = 0xff;
+
+                while((int32_t)((uint32_t)millis() - timeout) < 0L) //wait for transfer completion
+                {
+#if defined(ESP8266) || defined(ESP32)
+                        yield(); // needed in order to reset the watchdog timer on the ESP8266
+#endif
+                        tmpdata = regRd(rHIRQ);
+
+                        if(tmpdata & bmHXFRDNIRQ) {
+                                regWr(rHIRQ, bmHXFRDNIRQ); //clear the interrupt
+                                rcode = 0x00;
+                                break;
+                        }//if( tmpdata & bmHXFRDNIRQ
+
+                }//while ( millis() < timeout
+
+                //if (rcode != 0x00) //exit if timeout
+                //        return ( rcode);
+
+                rcode = (regRd(rHRSL) & 0x0f); //analyze transfer result
+
+                switch(rcode) {
+                        case hrNAK:
+                                nak_count++;
+                                if(nak_limit && (nak_count == nak_limit))
+                                        return (rcode);
+                                break;
+                        case hrTIMEOUT:
+                                retry_count++;
+                                if(retry_count == USB_RETRY_LIMIT)
+                                        return (rcode);
+                                break;
+                        default:
+                                return (rcode);
+                }//switch( rcode
+
+        }//while( timeout > millis()
+        return ( rcode);
 }
 /* USB main task. Performs enumeration/cleanup */
 void USB::Task( void )      //USB state machine

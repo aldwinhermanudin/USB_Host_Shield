@@ -10,6 +10,7 @@
     #include <WProgram.h>
 #endif
 #include "Max3421e_constants.h"
+#include <SPI.h>
 
 class MAX3421E /* : public SPI */ {
     // byte vbusState;
@@ -32,20 +33,12 @@ class MAX3421E /* : public SPI */ {
         byte Task();
     private:
       static void spi_init() {
-        uint8_t tmp;
-        // initialize SPI pins
-        pinMode(SCK_PIN, OUTPUT);
-        pinMode(MOSI_PIN, OUTPUT);
-        pinMode(MISO_PIN, INPUT);
-        pinMode(SS_PIN, OUTPUT);
-        digitalWrite( SS_PIN, HIGH ); 
-        /* mode 00 (CPOL=0, CPHA=0) master, fclk/2. Mode 11 (CPOL=11, CPHA=11) is also supported by MAX3421E */
-        SPCR = 0x50;
-        SPSR = 0x01;
-        /**/
-        tmp = SPSR;
-        tmp = SPDR;
-    }
+                SPI.begin(SCK_PIN,MISO_PIN,MOSI_PIN,SS_PIN); // The SPI library with transaction will take care of setting up the pins - settings is set in beginTransaction()
+                //SPI_SS::SetDirWrite();
+                pinMode(SS_PIN, OUTPUT);
+                //SPI_SS::Set();
+                digitalWrite(SS_PIN, HIGH);
+       }
 //        void init();
     friend class Max_LCD;        
 };
